@@ -18,9 +18,9 @@ func (e Errno) Error() string {
 	errmsg := fmt.Sprintf("errno [%d] ", e.status)
 	switch e.status {
 	case 17:
-		errmsg += "File exist"
-	case 20:
-		errmsg += "argument invlid"
+		errmsg += "File Exist"
+	case 22:
+		errmsg += "Argument Invlid"
 	}
 	return errmsg
 }

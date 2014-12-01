@@ -32,7 +32,8 @@ func TestUploadByFilename(t *testing.T) {
 		t.Errorf("UploadByfilename error %s", err.Error())
 	}
 	t.Log(uploadResponse.GroupName)
-	t.Log(uploadResponse.FileId)
+	t.Log(uploadResponse.RemoteFileId)
+	fdfsClient.DeleteFile(uploadResponse.RemoteFileId)
 }
 
 func TestUploadByBuffer(t *testing.T) {
@@ -42,7 +43,7 @@ func TestUploadByBuffer(t *testing.T) {
 		return
 	}
 
-	file, err := os.Open("a.txt") // For read access.
+	file, err := os.Open("testfile") // For read access.
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,7 +64,8 @@ func TestUploadByBuffer(t *testing.T) {
 	}
 
 	t.Log(uploadResponse.GroupName)
-	t.Log(uploadResponse.FileId)
+	t.Log(uploadResponse.RemoteFileId)
+	fdfsClient.DeleteFile(uploadResponse.RemoteFileId)
 }
 
 func TestUploadSlaveByFilename(t *testing.T) {
@@ -73,10 +75,74 @@ func TestUploadSlaveByFilename(t *testing.T) {
 		return
 	}
 
-	uploadResponse, err = fdfsClient.UploadSlaveByFilename("a.txt", "group1/M00/01/3D/CgABIFR4HVmASOIRAAACqhq4CP850.conf", "_test")
+	uploadResponse, err = fdfsClient.UploadByFilename("client.conf")
 	if err != nil {
 		t.Errorf("UploadByfilename error %s", err.Error())
 	}
 	t.Log(uploadResponse.GroupName)
-	t.Log(uploadResponse.FileId)
+	t.Log(uploadResponse.RemoteFileId)
+
+	masterFileId := uploadResponse.RemoteFileId
+	uploadResponse, err = fdfsClient.UploadSlaveByFilename("testfile", masterFileId, "_test")
+	if err != nil {
+		t.Errorf("UploadByfilename error %s", err.Error())
+	}
+	t.Log(uploadResponse.GroupName)
+	t.Log(uploadResponse.RemoteFileId)
+
+	fdfsClient.DeleteFile(masterFileId)
+	fdfsClient.DeleteFile(uploadResponse.RemoteFileId)
+}
+
+func TestDownloadToFile(t *testing.T) {
+	fdfsClient, err := NewFdfsClient("client.conf")
+	if err != nil {
+		t.Errorf("New FdfsClient error %s", err.Error())
+		return
+	}
+
+	uploadResponse, err = fdfsClient.UploadByFilename("client.conf")
+	defer fdfsClient.DeleteFile(uploadResponse.RemoteFileId)
+	if err != nil {
+		t.Errorf("UploadByfilename error %s", err.Error())
+	}
+	t.Log(uploadResponse.GroupName)
+	t.Log(uploadResponse.RemoteFileId)
+
+	var (
+		downloadResponse *DownloadFileResponse
+		localFilename    string = "download.txt"
+	)
+	downloadResponse, err = fdfsClient.DownloadToFile(localFilename, uploadResponse.RemoteFileId, 0, 0)
+	if err != nil {
+		t.Errorf("DownloadToFile error %s", err.Error())
+	}
+	t.Log(downloadResponse.DownloadSize)
+	t.Log(downloadResponse.RemoteFileId)
+}
+
+func TestDownloadToBuffer(t *testing.T) {
+	fdfsClient, err := NewFdfsClient("client.conf")
+	if err != nil {
+		t.Errorf("New FdfsClient error %s", err.Error())
+		return
+	}
+
+	uploadResponse, err = fdfsClient.UploadByFilename("client.conf")
+	defer fdfsClient.DeleteFile(uploadResponse.RemoteFileId)
+	if err != nil {
+		t.Errorf("UploadByfilename error %s", err.Error())
+	}
+	t.Log(uploadResponse.GroupName)
+	t.Log(uploadResponse.RemoteFileId)
+
+	var (
+		downloadResponse *DownloadFileResponse
+	)
+	downloadResponse, err = fdfsClient.DownloadToBuffer(uploadResponse.RemoteFileId, 0, 0)
+	if err != nil {
+		t.Errorf("DownloadToBuffer error %s", err.Error())
+	}
+	t.Log(downloadResponse.DownloadSize)
+	t.Log(downloadResponse.RemoteFileId)
 }

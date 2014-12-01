@@ -116,7 +116,7 @@ func (this *FdfsClient) UploadSlaveByFilename(filename, remoteFileId, prefixName
 		return nil, err
 	}
 	groupName := tmp[0]
-	remoteFileId = tmp[1]
+	remoteFilename := tmp[1]
 
 	tc := &TrackerClient{this.trackerPool}
 	storeServ, err := tc.trackerQueryStorageStorWithGroup(groupName)
@@ -127,21 +127,119 @@ func (this *FdfsClient) UploadSlaveByFilename(filename, remoteFileId, prefixName
 	storagePool, err := this.getStoragePool(storeServ.ipAddr, storeServ.port)
 	store := &StorageClient{storagePool}
 
-	return store.storageUploadSlaveByFilename(tc, storeServ, filename, prefixName, remoteFileId)
+	return store.storageUploadSlaveByFilename(tc, storeServ, filename, prefixName, remoteFilename)
 }
 
-// func (this *FdfsClient) UploadSlaveByBuffer(filebuffer []byte, remoteFileId, fileExtName string, metaDict interface{}) error {
+func (this *FdfsClient) UploadSlaveByBuffer(filebuffer []byte, remoteFileId, fileExtName string) (*UploadFileResponse, error) {
+	tmp, err := splitRemoteFileId(remoteFileId)
+	if err != nil || len(tmp) != 2 {
+		return nil, err
+	}
+	groupName := tmp[0]
+	remoteFilename := tmp[1]
 
-// 	tc := &TrackerClient{this.trackerPool}
-// 	storeServ, err := tc.trackerQueryStorageStorWithoutGroup()
-// 	if err != nil {
-// 		return err
-// 	}
-// 	store := &StorageClient{storeServ.ipAddr, storeServ.port, this.timeout}
+	tc := &TrackerClient{this.trackerPool}
+	storeServ, err := tc.trackerQueryStorageStorWithGroup(groupName)
+	if err != nil {
+		return nil, err
+	}
 
-// 	return nil
-// 	// return store.storageUploadByBuffer(tc, storeServ, filebuffer, fileExtName, metaDict)
-// }
+	storagePool, err := this.getStoragePool(storeServ.ipAddr, storeServ.port)
+	store := &StorageClient{storagePool}
+
+	return store.storageUploadSlaveByBuffer(tc, storeServ, filebuffer, remoteFilename, fileExtName)
+}
+
+func (this *FdfsClient) UploadAppenderByFilename(filename string) (*UploadFileResponse, error) {
+	if err := fdfsCheckFile(filename); err != nil {
+		return nil, errors.New(err.Error() + "(uploading)")
+	}
+
+	tc := &TrackerClient{this.trackerPool}
+	storeServ, err := tc.trackerQueryStorageStorWithoutGroup()
+	if err != nil {
+		return nil, err
+	}
+
+	storagePool, err := this.getStoragePool(storeServ.ipAddr, storeServ.port)
+	store := &StorageClient{storagePool}
+
+	return store.storageUploadAppenderByFilename(tc, storeServ, filename)
+}
+
+func (this *FdfsClient) UploadAppenderByBuffer(filebuffer []byte, fileExtName string) (*UploadFileResponse, error) {
+	tc := &TrackerClient{this.trackerPool}
+	storeServ, err := tc.trackerQueryStorageStorWithoutGroup()
+	if err != nil {
+		return nil, err
+	}
+
+	storagePool, err := this.getStoragePool(storeServ.ipAddr, storeServ.port)
+	store := &StorageClient{storagePool}
+
+	return store.storageUploadAppenderByBuffer(tc, storeServ, filebuffer, fileExtName)
+}
+
+func (this *FdfsClient) DeleteFile(remoteFileId string) error {
+	tmp, err := splitRemoteFileId(remoteFileId)
+	if err != nil || len(tmp) != 2 {
+		return err
+	}
+	groupName := tmp[0]
+	remoteFilename := tmp[1]
+
+	tc := &TrackerClient{this.trackerPool}
+	storeServ, err := tc.trackerQueryStorageUpdate(groupName, remoteFilename)
+	if err != nil {
+		return err
+	}
+
+	storagePool, err := this.getStoragePool(storeServ.ipAddr, storeServ.port)
+	store := &StorageClient{storagePool}
+
+	return store.storageDeleteFile(tc, storeServ, remoteFilename)
+}
+
+func (this *FdfsClient) DownloadToFile(localFilename string, remoteFileId string, offset int64, downloadSize int64) (*DownloadFileResponse, error) {
+	tmp, err := splitRemoteFileId(remoteFileId)
+	if err != nil || len(tmp) != 2 {
+		return nil, err
+	}
+	groupName := tmp[0]
+	remoteFilename := tmp[1]
+
+	tc := &TrackerClient{this.trackerPool}
+	storeServ, err := tc.trackerQueryStorageFetch(groupName, remoteFilename)
+	if err != nil {
+		return nil, err
+	}
+
+	storagePool, err := this.getStoragePool(storeServ.ipAddr, storeServ.port)
+	store := &StorageClient{storagePool}
+
+	return store.storageDownloadToFile(tc, storeServ, localFilename, offset, downloadSize, remoteFilename)
+}
+
+func (this *FdfsClient) DownloadToBuffer(remoteFileId string, offset int64, downloadSize int64) (*DownloadFileResponse, error) {
+	tmp, err := splitRemoteFileId(remoteFileId)
+	if err != nil || len(tmp) != 2 {
+		return nil, err
+	}
+	groupName := tmp[0]
+	remoteFilename := tmp[1]
+
+	tc := &TrackerClient{this.trackerPool}
+	storeServ, err := tc.trackerQueryStorageFetch(groupName, remoteFilename)
+	if err != nil {
+		return nil, err
+	}
+
+	storagePool, err := this.getStoragePool(storeServ.ipAddr, storeServ.port)
+	store := &StorageClient{storagePool}
+
+	var fileBuffer []byte
+	return store.storageDownloadToBuffer(tc, storeServ, fileBuffer, offset, downloadSize, remoteFilename)
+}
 
 func (this *FdfsClient) getStoragePool(ipAddr string, port int) (*ConnectionPool, error) {
 	hosts := []string{ipAddr}
