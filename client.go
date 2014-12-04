@@ -2,6 +2,8 @@ package fdfs_client
 
 import (
 	"errors"
+	"fmt"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -9,13 +11,16 @@ import (
 )
 
 var (
-	logger = logrus.New()
+	logger                                          = logrus.New()
+	storagePoolChan      chan *storagePool          = make(chan *storagePool, 1)
+	storagePoolMap       map[string]*ConnectionPool = make(map[string]*ConnectionPool)
+	fetchStoragePoolChan chan interface{}           = make(chan interface{}, 1)
+	quit                 chan bool
 )
 
 type FdfsClient struct {
 	tracker     *Tracker
 	trackerPool *ConnectionPool
-	storagePool *ConnectionPool
 	timeout     int
 }
 
@@ -23,9 +28,42 @@ type Tracker struct {
 	HostList []string
 	Port     int
 }
+type storagePool struct {
+	storagePoolKey string
+	hosts          []string
+	port           int
+	minConns       int
+	maxConns       int
+}
 
 func init() {
 	logger.Formatter = new(logrus.TextFormatter)
+	runtime.GOMAXPROCS(runtime.NumCPU())
+	go func() {
+		// start a loop
+		for {
+			select {
+			case spd := <-storagePoolChan:
+				if sp, ok := storagePoolMap[spd.storagePoolKey]; ok {
+					fetchStoragePoolChan <- sp
+				} else {
+					var (
+						sp  *ConnectionPool
+						err error
+					)
+					sp, err = NewConnectionPool(spd.hosts, spd.port, spd.minConns, spd.maxConns)
+					if err != nil {
+						fetchStoragePoolChan <- err
+					} else {
+						storagePoolMap[spd.storagePoolKey] = sp
+						fetchStoragePoolChan <- sp
+					}
+				}
+			case <-quit:
+				break
+			}
+		}
+	}()
 }
 func getTrackerConf(confPath string) (*Tracker, error) {
 	fc := &FdfsConfigParser{}
@@ -74,6 +112,10 @@ func NewFdfsClient(confPath string) (*FdfsClient, error) {
 	}
 
 	return &FdfsClient{tracker: tracker, trackerPool: trackerPool}, nil
+}
+
+func ColseFdfsClient() {
+	quit <- true
 }
 
 func (this *FdfsClient) UploadByFilename(filename string) (*UploadFileResponse, error) {
@@ -243,14 +285,32 @@ func (this *FdfsClient) DownloadToBuffer(remoteFileId string, offset int64, down
 
 func (this *FdfsClient) getStoragePool(ipAddr string, port int) (*ConnectionPool, error) {
 	hosts := []string{ipAddr}
-	if this.storagePool != nil {
-		if hosts[0] == this.storagePool.hosts[0] {
-			return this.storagePool, nil
-		} else {
-			this.storagePool.Close()
-			return NewConnectionPool(hosts, port, 10, 150)
+	var (
+		storagePoolKey string = fmt.Sprintf("%s-%d", hosts[0], port)
+		result         interface{}
+		err            error
+		ok             bool
+	)
+
+	spd := &storagePool{
+		storagePoolKey: storagePoolKey,
+		hosts:          hosts,
+		port:           port,
+		minConns:       10,
+		maxConns:       150,
+	}
+	storagePoolChan <- spd
+	for {
+		select {
+		case result = <-fetchStoragePoolChan:
+			var storagePool *ConnectionPool
+			if err, ok = result.(error); ok {
+				return nil, err
+			} else if storagePool, ok = result.(*ConnectionPool); ok {
+				return storagePool, nil
+			} else {
+				return nil, errors.New("none")
+			}
 		}
-	} else {
-		return NewConnectionPool(hosts, port, 10, 150)
 	}
 }

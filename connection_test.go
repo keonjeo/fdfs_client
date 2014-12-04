@@ -3,12 +3,17 @@ package fdfs_client
 import (
 	"fmt"
 	"testing"
-	"time"
 )
 
 func getConn(pool *ConnectionPool) {
+	fmt.Printf("start pool len %d\n", pool.Len())
 	conn, err := pool.Get()
-	defer conn.Close()
+	defer func() {
+		if conn != nil {
+			conn.Close()
+		}
+		fmt.Printf("end pool len %d\n", pool.Len())
+	}()
 	if err != nil {
 		fmt.Printf("get conn error:%s\n", err)
 	}
@@ -24,7 +29,9 @@ func TestGetConnection(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	go getConn(pool)
+	for i := 0; i < 100; i++ {
+		go getConn(pool)
+	}
 }
 
 func BenchmarkGetConnection(b *testing.B) {
@@ -40,7 +47,6 @@ func BenchmarkGetConnection(b *testing.B) {
 	b.StopTimer()
 	b.StartTimer()
 	for i := 0; i < 10000; i++ {
-		time.Sleep(time.Microsecond)
 		go getConn(pool)
 	}
 }

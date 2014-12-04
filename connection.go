@@ -7,7 +7,7 @@ import (
 	"math/rand"
 	"net"
 	"os"
-	"sync"
+	"time"
 )
 
 var ErrClosed = errors.New("pool is closed")
@@ -22,10 +22,11 @@ func (c pConn) Close() error {
 }
 
 type ConnectionPool struct {
-	hosts []string
-	port  int
-	conns chan net.Conn
-	mu    *sync.Mutex
+	hosts    []string
+	port     int
+	minConns int
+	maxConns int
+	conns    chan net.Conn
 }
 
 func NewConnectionPool(hosts []string, port int, minConns int, maxConns int) (*ConnectionPool, error) {
@@ -33,10 +34,11 @@ func NewConnectionPool(hosts []string, port int, minConns int, maxConns int) (*C
 		return nil, errors.New("invalid conns settings")
 	}
 	cp := &ConnectionPool{
-		hosts: hosts,
-		port:  port,
-		conns: make(chan net.Conn, maxConns),
-		mu:    new(sync.Mutex),
+		hosts:    hosts,
+		port:     port,
+		minConns: minConns,
+		maxConns: maxConns,
+		conns:    make(chan net.Conn, maxConns),
 	}
 	for i := 0; i < minConns; i++ {
 		conn, err := cp.makeConn()
@@ -62,19 +64,23 @@ func (this *ConnectionPool) Get() (net.Conn, error) {
 		}
 		return this.wrapConn(conn), nil
 	default:
+		if this.Len() >= this.maxConns {
+			errmsg := fmt.Sprintf("Too many connctions %d", this.Len())
+			return nil, errors.New(errmsg)
+		}
 		conn, err := this.makeConn()
 		if err != nil {
 			return nil, err
 		}
+
+		this.conns <- conn
 		return this.wrapConn(conn), nil
 	}
 }
 
 func (this *ConnectionPool) Close() {
-	this.mu.Lock()
 	conns := this.conns
 	this.conns = nil
-	this.mu.Unlock()
 
 	if conns == nil {
 		return
@@ -94,13 +100,11 @@ func (this *ConnectionPool) Len() int {
 func (this *ConnectionPool) makeConn() (net.Conn, error) {
 	host := this.hosts[rand.Intn(len(this.hosts))]
 	addr := fmt.Sprintf("%s:%d", host, this.port)
-	return net.Dial("tcp", addr)
+	return net.DialTimeout("tcp", addr, time.Minute)
 }
 
 func (this *ConnectionPool) getConns() chan net.Conn {
-	this.mu.Lock()
 	conns := this.conns
-	this.mu.Unlock()
 	return conns
 }
 
@@ -108,9 +112,6 @@ func (this *ConnectionPool) put(conn net.Conn) error {
 	if conn == nil {
 		return errors.New("connection is nil")
 	}
-	this.mu.Lock()
-	defer this.mu.Unlock()
-
 	if this.conns == nil {
 		return conn.Close()
 	}

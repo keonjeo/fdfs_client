@@ -1,6 +1,7 @@
 package fdfs_client
 
 import (
+	"fmt"
 	"os"
 	"testing"
 )
@@ -145,4 +146,24 @@ func TestDownloadToBuffer(t *testing.T) {
 	}
 	t.Log(downloadResponse.DownloadSize)
 	t.Log(downloadResponse.RemoteFileId)
+}
+
+func BenchmarkUploadByFilename(b *testing.B) {
+	b.StopTimer()
+	b.StartTimer()
+	fdfsClient, err := NewFdfsClient("client.conf")
+	if err != nil {
+		fmt.Errorf("New FdfsClient error %s", err.Error())
+		return
+	}
+	for i := 0; i < b.N; i++ {
+		uploadResponse, err = fdfsClient.UploadByFilename("client.conf")
+		if err != nil {
+			fmt.Errorf("UploadByfilename error %s", err.Error())
+		}
+		err = fdfsClient.DeleteFile(uploadResponse.RemoteFileId)
+		if err != nil {
+			fmt.Errorf("DeleteFile error %s", err.Error())
+		}
+	}
 }
