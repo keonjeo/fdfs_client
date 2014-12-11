@@ -6,13 +6,11 @@ import (
 )
 
 func getConn(pool *ConnectionPool) {
-	fmt.Printf("start pool len %d\n", pool.Len())
 	conn, err := pool.Get()
 	defer func() {
 		if conn != nil {
 			conn.Close()
 		}
-		fmt.Printf("end pool len %d\n", pool.Len())
 	}()
 	if err != nil {
 		fmt.Printf("get conn error:%s\n", err)

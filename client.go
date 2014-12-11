@@ -114,6 +114,14 @@ func NewFdfsClient(confPath string) (*FdfsClient, error) {
 	return &FdfsClient{tracker: tracker, trackerPool: trackerPool}, nil
 }
 
+func NewFdfsClientByTracker(tracker *Tracker) (*FdfsClient, error) {
+	trackerPool, err := NewConnectionPool(tracker.HostList, tracker.Port, 10, 150)
+	if err != nil {
+		return nil, err
+	}
+
+	return &FdfsClient{tracker: tracker, trackerPool: trackerPool}, nil
+}
 func ColseFdfsClient() {
 	quit <- true
 }

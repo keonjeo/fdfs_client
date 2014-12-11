@@ -20,6 +20,16 @@ func TestParserFdfsConfig(t *testing.T) {
 	v, _ := c.String("DEFAULT", "base_path")
 	t.Log(v)
 }
+func TestNewFdfsClientByTracker(t *testing.T) {
+	tracker := &Tracker{
+		[]string{"10.0.1.32"},
+		22122,
+	}
+	_, err := NewFdfsClientByTracker(tracker)
+	if err != nil {
+		t.Error(err)
+	}
+}
 
 func TestUploadByFilename(t *testing.T) {
 	fdfsClient, err := NewFdfsClient("client.conf")
