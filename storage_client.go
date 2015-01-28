@@ -270,7 +270,7 @@ func (this *StorageClient) storageDownloadFile(tc *TrackerClient,
 		logger.Warnf(err.Error())
 		return nil, err
 	}
-	if recvSize <= downloadSize {
+	if recvSize < downloadSize {
 		errmsg := "[-] Error: Storage response length is not match, "
 		errmsg += fmt.Sprintf("expect: %d, actual: %d", th.pkgLen, recvSize)
 		logger.Warn(errmsg)
