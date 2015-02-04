@@ -177,3 +177,30 @@ func BenchmarkUploadByFilename(b *testing.B) {
 		}
 	}
 }
+
+func BenchmarkDownloadToFile(b *testing.B) {
+	fdfsClient, err := NewFdfsClient("client.conf")
+	if err != nil {
+		fmt.Errorf("New FdfsClient error %s", err.Error())
+		return
+	}
+
+	uploadResponse, err = fdfsClient.UploadByFilename("client.conf")
+	defer fdfsClient.DeleteFile(uploadResponse.RemoteFileId)
+	if err != nil {
+		fmt.Errorf("UploadByfilename error %s", err.Error())
+	}
+	b.StopTimer()
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		var (
+			localFilename string = "download.txt"
+		)
+		_, err = fdfsClient.DownloadToFile(localFilename, uploadResponse.RemoteFileId, 0, 0)
+		if err != nil {
+			fmt.Errorf("DownloadToFile error %s", err.Error())
+		}
+
+		// fmt.Println(downloadResponse.RemoteFileId)
+	}
+}
