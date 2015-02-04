@@ -158,7 +158,7 @@ func TestDownloadToBuffer(t *testing.T) {
 	t.Log(downloadResponse.RemoteFileId)
 }
 
-func BenchmarkUploadByFilename(b *testing.B) {
+func BenchmarkUploadByBuffer(b *testing.B) {
 	fdfsClient, err := NewFdfsClient("client.conf")
 	if err != nil {
 		fmt.Errorf("New FdfsClient error %s", err.Error())
@@ -192,14 +192,16 @@ func BenchmarkUploadByFilename(b *testing.B) {
 	}
 }
 
-func BenchmarkUploadByBuffer(b *testing.B) {
-	b.StopTimer()
-	b.StartTimer()
+func BenchmarkUploadByFilename(b *testing.B) {
 	fdfsClient, err := NewFdfsClient("client.conf")
 	if err != nil {
 		fmt.Errorf("New FdfsClient error %s", err.Error())
 		return
 	}
+
+	b.StopTimer()
+	b.StartTimer()
+
 	for i := 0; i < b.N; i++ {
 		uploadResponse, err = fdfsClient.UploadByFilename("client.conf")
 		if err != nil {
