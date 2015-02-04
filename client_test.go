@@ -159,6 +159,40 @@ func TestDownloadToBuffer(t *testing.T) {
 }
 
 func BenchmarkUploadByFilename(b *testing.B) {
+	fdfsClient, err := NewFdfsClient("client.conf")
+	if err != nil {
+		fmt.Errorf("New FdfsClient error %s", err.Error())
+		return
+	}
+	file, err := os.Open("testfile") // For read access.
+	if err != nil {
+		fmt.Errorf("%s", err.Error())
+	}
+
+	var fileSize int64 = 0
+	if fileInfo, err := file.Stat(); err == nil {
+		fileSize = fileInfo.Size()
+	}
+	fileBuffer := make([]byte, fileSize)
+	_, err = file.Read(fileBuffer)
+	if err != nil {
+		fmt.Errorf("%s", err.Error())
+	}
+
+	b.StopTimer()
+	b.StartTimer()
+
+	for i := 0; i < b.N; i++ {
+		uploadResponse, err = fdfsClient.UploadByBuffer(fileBuffer, "txt")
+		if err != nil {
+			fmt.Errorf("TestUploadByBuffer error %s", err.Error())
+		}
+
+		fdfsClient.DeleteFile(uploadResponse.RemoteFileId)
+	}
+}
+
+func BenchmarkUploadByBuffer(b *testing.B) {
 	b.StopTimer()
 	b.StartTimer()
 	fdfsClient, err := NewFdfsClient("client.conf")
