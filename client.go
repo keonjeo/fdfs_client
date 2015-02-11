@@ -69,7 +69,7 @@ func getTrackerConf(confPath string) (*Tracker, error) {
 	fc := &FdfsConfigParser{}
 	cf, err := fc.Read(confPath)
 	if err != nil {
-		logger.Fatalf("Read conf error :%s", err)
+		logger.Errorf("Read conf error :%s", err)
 		return nil, err
 	}
 	trackerListString, _ := cf.RawString("DEFAULT", "tracker_server")
