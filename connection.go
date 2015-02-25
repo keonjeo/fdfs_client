@@ -165,11 +165,13 @@ func TcpSendFile(conn net.Conn, filename string) error {
 }
 
 func TcpRecvResponse(conn net.Conn, bufferSize int64) ([]byte, int64, error) {
-	recvBuff := make([]byte, bufferSize)
+	recvBuff := make([]byte, 0, bufferSize)
+	tmp := make([]byte, 256)
 	var total int64
 	for {
-		n, err := conn.Read(recvBuff)
+		n, err := conn.Read(tmp)
 		total += int64(n)
+		recvBuff = append(recvBuff, tmp[:n]...)
 		if err != nil {
 			if err != io.EOF {
 				return nil, 0, err
