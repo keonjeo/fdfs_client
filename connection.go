@@ -57,25 +57,33 @@ func (this *ConnectionPool) Get() (net.Conn, error) {
 		return nil, ErrClosed
 	}
 
-	select {
-	case conn := <-conns:
-		if conn == nil {
-			return nil, ErrClosed
-		}
-		return this.wrapConn(conn), nil
-	default:
-		if this.Len() >= this.maxConns {
-			errmsg := fmt.Sprintf("Too many connctions %d", this.Len())
-			return nil, errors.New(errmsg)
-		}
-		conn, err := this.makeConn()
-		if err != nil {
-			return nil, err
-		}
+	for {
+		select {
+		case conn := <-conns:
+			if conn == nil {
+				break
+				//return nil, ErrClosed
+			}
+			if err := this.activeConn(conn); err != nil {
+				break
+			}
+			return this.wrapConn(conn), nil
+		default:
+			if this.Len() >= this.maxConns {
+				errmsg := fmt.Sprintf("Too many connctions %d", this.Len())
+				return nil, errors.New(errmsg)
+			}
+			conn, err := this.makeConn()
+			fmt.Println("make new conn", conn.RemoteAddr())
+			if err != nil {
+				return nil, err
+			}
 
-		this.conns <- conn
-		return this.wrapConn(conn), nil
+			this.conns <- conn
+			return this.wrapConn(conn), nil
+		}
 	}
+
 }
 
 func (this *ConnectionPool) Close() {
@@ -130,6 +138,17 @@ func (this *ConnectionPool) wrapConn(conn net.Conn) net.Conn {
 	return c
 }
 
+func (this *ConnectionPool) activeConn(conn net.Conn) error {
+	th := &trackerHeader{}
+	th.cmd = FDFS_PROTO_CMD_ACTIVE_TEST
+	th.sendHeader(conn)
+	th.recvHeader(conn)
+	if th.cmd == 100 && th.status == 0 {
+		return nil
+	}
+	return errors.New("Conn unaliviable")
+}
+
 func TcpSendData(conn net.Conn, bytesStream []byte) error {
 	if _, err := conn.Write(bytesStream); err != nil {
 		return err
@@ -165,11 +184,13 @@ func TcpSendFile(conn net.Conn, filename string) error {
 }
 
 func TcpRecvResponse(conn net.Conn, bufferSize int64) ([]byte, int64, error) {
-	recvBuff := make([]byte, bufferSize)
+	recvBuff := make([]byte, 0, bufferSize)
+	tmp := make([]byte, 256)
 	var total int64
 	for {
-		n, err := conn.Read(recvBuff)
+		n, err := conn.Read(tmp)
 		total += int64(n)
+		recvBuff = append(recvBuff, tmp[:n]...)
 		if err != nil {
 			if err != io.EOF {
 				return nil, 0, err
