@@ -74,7 +74,6 @@ func (this *ConnectionPool) Get() (net.Conn, error) {
 				return nil, errors.New(errmsg)
 			}
 			conn, err := this.makeConn()
-			fmt.Println("make new conn", conn.RemoteAddr())
 			if err != nil {
 				return nil, err
 			}
