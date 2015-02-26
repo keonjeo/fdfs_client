@@ -57,25 +57,32 @@ func (this *ConnectionPool) Get() (net.Conn, error) {
 		return nil, ErrClosed
 	}
 
-	select {
-	case conn := <-conns:
-		if conn == nil {
-			return nil, ErrClosed
-		}
-		return this.wrapConn(conn), nil
-	default:
-		if this.Len() >= this.maxConns {
-			errmsg := fmt.Sprintf("Too many connctions %d", this.Len())
-			return nil, errors.New(errmsg)
-		}
-		conn, err := this.makeConn()
-		if err != nil {
-			return nil, err
-		}
+	for {
+		select {
+		case conn := <-conns:
+			if conn == nil {
+				break
+				//return nil, ErrClosed
+			}
+			if err := this.activeConn(conn); err != nil {
+				break
+			}
+			return this.wrapConn(conn), nil
+		default:
+			if this.Len() >= this.maxConns {
+				errmsg := fmt.Sprintf("Too many connctions %d", this.Len())
+				return nil, errors.New(errmsg)
+			}
+			conn, err := this.makeConn()
+			if err != nil {
+				return nil, err
+			}
 
-		this.conns <- conn
-		return this.wrapConn(conn), nil
+			this.conns <- conn
+			return this.wrapConn(conn), nil
+		}
 	}
+
 }
 
 func (this *ConnectionPool) Close() {
@@ -128,6 +135,17 @@ func (this *ConnectionPool) wrapConn(conn net.Conn) net.Conn {
 	c := pConn{pool: this}
 	c.Conn = conn
 	return c
+}
+
+func (this *ConnectionPool) activeConn(conn net.Conn) error {
+	th := &trackerHeader{}
+	th.cmd = FDFS_PROTO_CMD_ACTIVE_TEST
+	th.sendHeader(conn)
+	th.recvHeader(conn)
+	if th.cmd == 100 && th.status == 0 {
+		return nil
+	}
+	return errors.New("Conn unaliviable")
 }
 
 func TcpSendData(conn net.Conn, bytesStream []byte) error {

@@ -18,10 +18,10 @@ func (this *TrackerClient) trackerQueryStorageStorWithoutGroup() (*StorageServer
 	)
 
 	conn, err = this.pool.Get()
-	defer conn.Close()
 	if err != nil {
 		return nil, err
 	}
+	defer conn.Close()
 
 	th := &trackerHeader{}
 	th.cmd = TRACKER_PROTO_CMD_SERVICE_QUERY_STORE_WITHOUT_GROUP_ONE
