@@ -4,7 +4,7 @@ The Golang interface to the Fastdfs Ver 4.06.
 ## Installation
 $ go get github.com/weilaihui/fdfs_client
 ## Getting Started
-please see client_test.go
+see client_test.go please 
 
 # Author
 我是[dockerpool](http://www.dockerpool.com)的一员，你可以在我们的网站上获得更多的帮助。
