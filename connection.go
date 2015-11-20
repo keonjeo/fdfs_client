@@ -79,7 +79,8 @@ func (this *ConnectionPool) Get() (net.Conn, error) {
 			}
 
 			this.conns <- conn
-			return this.wrapConn(conn), nil
+			//put connection to pool and go next `for` loop
+			//return this.wrapConn(conn), nil
 		}
 	}
 
