@@ -143,6 +143,23 @@ func (this *FdfsClient) UploadByFilename(filename string) (*UploadFileResponse, 
 	return store.storageUploadByFilename(tc, storeServ, filename)
 }
 
+// SpecifyStoreIndexUploadByBuffer 指定store index 上传
+func (fc *FdfsClient) SpecifyStoreIndexUploadByBuffer(buf []byte, fileExtName string, index int) (*UploadFileResponse, error) {
+	tc := &TrackerClient{fc.trackerPool}
+	storeServ, err := tc.trackerQueryStorageStorWithoutGroup()
+	if err != nil {
+		return nil, err
+	}
+
+	storagePool, err := fc.getStoragePool(storeServ.ipAddr, storeServ.port)
+	store := &StorageClient{storagePool}
+
+	// 指定index上传
+	storeServ.SetStorePathIndex(index)
+
+	return store.storageUploadByBuffer(tc, storeServ, buf, fileExtName)
+}
+
 func (this *FdfsClient) UploadByBuffer(filebuffer []byte, fileExtName string) (*UploadFileResponse, error) {
 	tc := &TrackerClient{this.trackerPool}
 	storeServ, err := tc.trackerQueryStorageStorWithoutGroup()

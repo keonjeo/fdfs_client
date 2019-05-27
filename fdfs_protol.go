@@ -163,6 +163,17 @@ type StorageServer struct {
 	storePathIndex int
 }
 
+// StorePathIndex 设置属性
+func (s *StorageServer) StorePathIndex() int {
+	return s.storePathIndex
+}
+
+// SetStorePathIndex 获取属性
+func (s *StorageServer) SetStorePathIndex(storePathIndex int) {
+	s.storePathIndex = storePathIndex
+}
+
+
 type trackerHeader struct {
 	pkgLen int64
 	cmd    int8
